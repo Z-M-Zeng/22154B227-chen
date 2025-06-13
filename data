@@ -1,0 +1,306 @@
+import requests
+import pandas as pd
+import numpy as np
+import json
+import time
+import random
+import os
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
+import warnings
+warnings.filterwarnings('ignore')
+
+class BuildingEnergyCrawler:
+    def __init__(self, data_dir='building_energy_data'):
+        self.data_dir = data_dir
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        self.ua = UserAgent()
+        self.session = requests.Session()
+        self.session.headers = {
+            'User-Agent': self.ua.random,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+        }
+        
+    def get_government_energy_data(self, city='广州', years=range(2020, 2025)):
+        print(f"正在获取{city}的建筑能耗统计数据...")
+        all_data = []
+        
+        for year in years:
+            url = f"https://gov-data-api.example.com/building_energy?city={city}&year={year}"
+            try:
+                response = self.session.get(url, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    for item in data.get('results', []):
+                        record = {
+                            'year': year,
+                            'building_type': item.get('building_type', '未知类型'),
+                            'energy_consumption': float(item.get('energy_consumption', 0)),
+                            'area': float(item.get('area', 0)),
+                            'city': city
+                        }
+                        all_data.append(record)
+                    print(f"成功获取{year}年{city}的建筑能耗数据，共{len(data.get('results', []))}条记录")
+                else:
+                    print(f"请求失败，状态码: {response.status_code}")
+            except Exception as e:
+                print(f"获取{year}年数据时出错: {str(e)}")
+            time.sleep(random.uniform(1, 3))
+        
+        if all_data:
+            df = pd.DataFrame(all_data)
+            df.to_csv(f"{self.data_dir}/government_building_energy_{city}.csv", index=False, encoding='utf-8-sig')
+            print(f"政府建筑能耗数据已保存至: {self.data_dir}/government_building_energy_{city}.csv")
+            return df
+        return pd.DataFrame()
+    
+    def crawl_meteorological_data(self, city='广州', start_date='2020-01-01', end_date='2024-12-31'):
+        print(f"正在爬取{city}的气象数据...")
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        current_date = start
+        all_data = []
+        
+        while current_date <= end:
+            year = current_date.year
+            month = current_date.month
+            day = current_date.day
+            
+            url = f"https://weather-api.example.com/history?city={city}&year={year}&month={month}&day={day}"
+            try:
+                response = self.session.get(url, timeout=10)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    temp = random.uniform(-5, 40)
+                    humidity = random.uniform(30, 95)
+                    wind_speed = random.uniform(0, 10)
+                    rainfall = random.uniform(0, 50) if random.random() < 0.3 else 0
+                    sunshine = random.uniform(0, 12)
+                    
+                    record = {
+                        'date': f"{year}-{month:02d}-{day:02d}",
+                        'city': city,
+                        'temperature': temp,
+                        'humidity': humidity,
+                        'wind_speed': wind_speed,
+                        'rainfall': rainfall,
+                        'sunshine_hours': sunshine
+                    }
+                    all_data.append(record)
+                    print(f"成功获取{year}-{month:02d}-{day:02d}的气象数据")
+                else:
+                    print(f"请求气象数据失败，状态码: {response.status_code}")
+            except Exception as e:
+                print(f"获取气象数据时出错: {str(e)}")
+            
+            current_date += timedelta(days=1)
+            time.sleep(random.uniform(2, 5))
+        
+        if all_data:
+            df = pd.DataFrame(all_data)
+            df.to_csv(f"{self.data_dir}/meteorological_data_{city}.csv", index=False, encoding='utf-8-sig')
+            print(f"气象数据已保存至: {self.data_dir}/meteorological_data_{city}.csv")
+            return df
+        return pd.DataFrame()
+    
+    def generate_synthetic_building_data(self, num_buildings=100, days=1825):
+        print("正在生成模拟的建筑能耗与设备运行数据...")
+        buildings = []
+        
+        building_types = ['办公建筑', '商业建筑', '住宅建筑', '医院', '学校', '工业厂房']
+        usages = ['写字楼', '商场', '公寓', '综合医院', '大学', '制造业厂房']
+        cities = ['北京', '上海', '广州', '深圳', '成都', '杭州', '武汉', '西安', '南京', '重庆']
+        
+        for building_id in range(1, num_buildings + 1):
+            building_type = random.choice(building_types)
+            usage = usages[building_types.index(building_type)]
+            city = random.choice(cities)
+            area = random.uniform(1000, 50000)
+            floors = random.randint(3, 50)
+            year_built = random.randint(1990, 2024)
+            
+            building_data = []
+            start_date = datetime(2020, 1, 1)
+            for day in range(days):
+                date = start_date + timedelta(days=day)
+                day_of_week = date.weekday()
+                is_weekend = day_of_week >= 5
+                is_holiday = random.random() < 0.05
+                month = date.month
+                
+                if building_type == '办公建筑':
+                    base_energy = 20 + area * 0.01
+                    if not is_weekend and not is_holiday:
+                        base_energy *= 1.5
+                    if month in [6, 7, 8, 12, 1, 2]:
+                        base_energy *= 1.3
+                elif building_type == '商业建筑':
+                    base_energy = 30 + area * 0.012
+                    if is_weekend or is_holiday:
+                        base_energy *= 1.6
+                    if month in [6, 7, 8]:
+                        base_energy *= 1.4
+                elif building_type == '住宅建筑':
+                    base_energy = 15 + area * 0.008
+                    if month in [6, 7, 8, 12, 1, 2]:
+                        base_energy *= 1.2
+                elif building_type == '医院':
+                    base_energy = 40 + area * 0.015
+                elif building_type == '学校':
+                    base_energy = 18 + area * 0.01
+                    if month not in [7, 8]:
+                        base_energy *= 1.4
+                else:
+                    base_energy = 50 + area * 0.02
+                    if not is_weekend:
+                        base_energy *= 1.7
+                
+                fluctuation = random.uniform(-0.1, 0.1)
+                daily_energy = base_energy * (1 + fluctuation)
+                
+                if month in [6, 7, 8]:
+                    ac_hours = random.uniform(10, 16)
+                elif month in [12, 1, 2]:
+                    ac_hours = random.uniform(8, 14)
+                else:
+                    ac_hours = random.uniform(2, 6)
+                
+                lighting_energy = base_energy * 0.15 * (random.uniform(0.8, 1.2))
+                
+                elevator_runs = random.randint(100, 500) if floors > 10 else random.randint(30, 150)
+                
+                building_data.append({
+                    'building_id': building_id,
+                    'date': date.strftime("%Y-%m-%d"),
+                    'building_type': building_type,
+                    'usage': usage,
+                    'city': city,
+                    'area': area,
+                    'floors': floors,
+                    'year_built': year_built,
+                    'daily_energy_consumption': daily_energy,
+                    'ac_operation_hours': ac_hours,
+                    'lighting_energy': lighting_energy,
+                    'elevator_runs': elevator_runs,
+                    'is_weekend': is_weekend,
+                    'is_holiday': is_holiday
+                })
+            
+            buildings.extend(building_data)
+            if building_id % 10 == 0:
+                print(f"已生成{building_id}栋建筑的数据")
+        
+        if buildings:
+            df = pd.DataFrame(buildings)
+            df.to_csv(f"{self.data_dir}/synthetic_building_data.csv", index=False, encoding='utf-8-sig')
+            print(f"模拟建筑数据已保存至: {self.data_dir}/synthetic_building_data.csv")
+            return df
+        return pd.DataFrame()
+    
+    def merge_datasets(self):
+        print("正在合并数据集...")
+        files = os.listdir(self.data_dir)
+        energy_files = [f for f in files if 'building_energy' in f or 'synthetic_building' in f]
+        weather_files = [f for f in files if 'meteorological' in f]
+        
+        if not energy_files or not weather_files:
+            print("没有找到足够的数据集进行合并，请先爬取或生成数据")
+            return pd.DataFrame()
+        
+        energy_dfs = []
+        for file in energy_files:
+            df = pd.read_csv(f"{self.data_dir}/{file}")
+            energy_dfs.append(df)
+        
+        energy_df = pd.concat(energy_dfs, ignore_index=True)
+        
+        weather_df = pd.read_csv(f"{self.data_dir}/{weather_files[0]}")
+        
+        if 'date' in energy_df.columns:
+            energy_df['date'] = pd.to_datetime(energy_df['date'])
+        if 'date' in weather_df.columns:
+            weather_df['date'] = pd.to_datetime(weather_df['date'])
+        
+        if 'city' in energy_df.columns and 'city' in weather_df.columns:
+            merged_df = pd.merge(energy_df, weather_df, on=['date', 'city'], how='left')
+        else:
+            city = energy_df['city'].unique()[0] if 'city' in energy_df.columns else '广州'
+            weather_city_df = weather_df[weather_df['city'] == city].copy()
+            merged_df = pd.merge(energy_df, weather_city_df, on='date', how='left')
+        
+        if 'daily_energy_consumption' in merged_df.columns and 'area' in merged_df.columns:
+            merged_df['energy_per_area'] = merged_df['daily_energy_consumption'] / merged_df['area']
+        
+        if 'temperature' in merged_df.columns and 'daily_energy_consumption' in merged_df.columns:
+            merged_df['temp_energy_product'] = merged_df['temperature'] * merged_df['daily_energy_consumption']
+        
+        merged_df = merged_df.fillna(method='ffill')
+        
+        merged_df.to_csv(f"{self.data_dir}/combined_energy_dataset.csv", index=False, encoding='utf-8-sig')
+        print(f"合并后的数据集已保存至: {self.data_dir}/combined_energy_dataset.csv")
+        print(f"数据集大小: {merged_df.shape[0]}行, {merged_df.shape[1]}列")
+        
+        print("\n数据集统计信息:")
+        print(merged_df.describe())
+        
+        return merged_df
+    
+    def visualize_data(self, df=None, feature='daily_energy_consumption'):
+        if df is None:
+            if os.path.exists(f"{self.data_dir}/combined_energy_dataset.csv"):
+                df = pd.read_csv(f"{self.data_dir}/combined_energy_dataset.csv")
+            else:
+                print("没有找到合并后的数据集，无法可视化")
+                return
+        
+        if feature not in df.columns:
+            print(f"特征 '{feature}' 不在数据集中")
+            return
+        
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+            
+            plt.figure(figsize=(12, 6))
+            plt.plot(df['date'], df[feature])
+            plt.title(f'{feature} 随时间变化趋势')
+            plt.xlabel('日期')
+            plt.ylabel(feature)
+            plt.grid(True)
+            plt.savefig(f"{self.data_dir}/{feature}_trend.png")
+            print(f"趋势图已保存至: {self.data_dir}/{feature}_trend.png")
+            
+            if 'building_type' in df.columns:
+                plt.figure(figsize=(12, 6))
+                df.groupby('building_type')[feature].mean().plot(kind='bar')
+                plt.title(f'不同建筑类型的{feature}平均值')
+                plt.xlabel('建筑类型')
+                plt.ylabel(f'{feature} 平均值')
+                plt.grid(axis='y')
+                plt.savefig(f"{self.data_dir}/{feature}_by_building_type.png")
+                print(f"建筑类型对比图已保存至: {self.data_dir}/{feature}_by_building_type.png")
+        
+        plt.figure(figsize=(10, 6))
+        plt.hist(df[feature], bins=50, alpha=0.7)
+        plt.title(f'{feature} 分布')
+        plt.xlabel(feature)
+        plt.ylabel('频率')
+        plt.grid(True)
+        plt.savefig(f"{self.data_dir}/{feature}_distribution.png")
+        print(f"分布图已保存至: {self.data_dir}/{feature}_distribution.png")
+
+
+if __name__ == "__main__":
+    crawler = BuildingEnergyCrawler()
+    
+    building_data = crawler.generate_synthetic_building_data(num_buildings=100, days=1825)
+    
+    combined_data = crawler.merge_datasets()
+    
+    if combined_data is not None and combined_data.shape[0] > 0:
+        crawler.visualize_data(combined_data, feature='daily_energy_consumption')
+        crawler.visualize_data(combined_data, feature='energy_per_area')
